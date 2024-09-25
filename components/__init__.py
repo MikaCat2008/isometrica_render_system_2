@@ -1,7 +1,3 @@
 from .fps_text_component import FpsTextComponent as FpsTextComponent
+from .player_movement_component import PlayerMovementComponent as PlayerMovementComponent
 from .randomized_text_component import RandomizedTextComponent as RandomizedTextComponent
-
-components = [
-    FpsTextComponent,
-    RandomizedTextComponent
-]

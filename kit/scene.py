@@ -28,9 +28,7 @@ class Scene(Serializable):
     def draw(self) -> None:
         self.game.screen.fill((0, 0, 0))
         self.game.screen.fblits(
-            ( 
-                node.image, node.position
-            )
+            ( node.image, node.position )
             for node in self.root_node.get_nodes()
             if isinstance(node, DrawableNode)
         )

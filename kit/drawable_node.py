@@ -8,15 +8,28 @@ from .serialization import serialize_field
 
 
 class DrawableNode(Node):
+    _position: tuple[int, int] = serialize_field(tuple[int, int], lambda: (0, 0), "position")
+
     image: Surface
-    position: tuple[int, int] = serialize_field(tuple[int, int], lambda: (0, 0))
+    render_position: tuple[int, int]
 
     def __init__(self) -> None:
-        super().__init__()
-        
         self.image = Surface((1, 1))
+        
+        super().__init__()
 
-    def update(self) -> bool:
-        super().update()
+    def update_position(self) -> None:
+        x, y = self.position
+        w, h = self.image.get_size()
 
-        return self.is_alive
+        self.render_position = int(x - w / 2), int(y - h)
+
+    @property
+    def position(self) -> tuple[int, int]:
+        return self._position
+
+    @position.setter
+    def position(self, position: tuple[int, int]) -> None:
+        self._position = position
+
+        self.update_position()

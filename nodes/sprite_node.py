@@ -4,13 +4,19 @@ from kit import serialize_field, DrawableNode
 
 
 class SpriteNode(DrawableNode):
-    texture_name: str = serialize_field(str)
-
-    def set_texture(self, texture_name: str) -> None:        
-        self.texture_name = texture_name
-        self.render()
+    _texture_name: str = serialize_field(str, alias_name="texture_name")
 
     def render(self) -> None:
         textures = TexturesManager.get_instance()
 
         self.image = textures.get_texture(self.texture_name)
+        self.update_position()
+
+    @property
+    def texture_name(self) -> str:
+        return self._texture_name
+
+    @texture_name.setter
+    def texture_name(self, texture_name: str) -> None:        
+        self._texture_name = texture_name
+        self.render()
