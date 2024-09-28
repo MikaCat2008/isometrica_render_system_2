@@ -1,4 +1,4 @@
-from typing import Any, Generic, TypeVar, Callable
+from typing import Any, Type, TypeVar, Generic, Callable
 from threading import Event
 
 from pydantic import TypeAdapter
@@ -6,34 +6,38 @@ from pydantic import TypeAdapter
 T = TypeVar("T")
 
 
-class Callback(Event, Generic[T]):
+class Answer(Generic[T]):
+    event: Event
     result: Any
     adapter: TypeAdapter
+    answer_id: int
     listeners: list[Callable]
-    callback_id: int
+    result_type: Type
     
-    def __init__(self, callback_id: int, result_type: type) -> None:
+    def __init__(self, answer_id: int, result_type: Type) -> None:
         super().__init__()
         
+        self.event = Event()
         self.result = None
         self.adapter = TypeAdapter(result_type)
+        self.answer_id = answer_id
         self.listeners = []
-        self.callback_id = callback_id
+        self.result_type = result_type
     
-    def set_result(self, result: Any) -> None:
+    def set(self, result: Any) -> None:
         self.result = self.adapter.validate_python(result)
-        self.set()
+        self.event.set()
 
         for listener in self.listeners:
             listener(self.result)
     
-    def wait_result(self) -> T:
+    def wait(self) -> T:
         if self.result_type is None:
             return None
 
-        self.wait()
+        self.event.wait()
         
         return self.result
 
-    def add_result_listener(self, listener: Callable) -> None:
+    def on_result(self, listener: Callable) -> None:
         self.listeners.append(listener)
