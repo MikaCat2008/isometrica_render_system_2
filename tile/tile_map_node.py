@@ -13,12 +13,14 @@ from .tile_chunk import TileChunk
 class TileMapNode(DrawableNode):
     image: Surface
     tile_chunks: dict[tuple[int, int], TileChunk]
+    inner_position: tuple[int, int]
 
     def __init__(self) -> None:
         super().__init__()
 
         self.image = Surface((512, 288), pg.SRCALPHA)
         self.tile_chunks = {}
+        self.inner_position = 0, 0
 
     def create_chunk(self, position: tuple[int, int]) -> TileChunk:
         chunk = TileChunk(position)
@@ -61,9 +63,11 @@ class TileMapNode(DrawableNode):
             if chunk.update()
         }
 
+        ix, iy = self.inner_position
+
         self.image.fill((0, 0, 0))
         self.image.fblits(
-            (chunk.image, (cx * 128, cy * 128))
+            (chunk.image, (ix + cx * 128, iy + cy * 128))
             for (cx, cy), chunk in self.tile_chunks.items()
         )
 

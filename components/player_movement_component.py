@@ -1,12 +1,13 @@
 import pygame as pg
 from pygame.key import get_pressed
 
-from kit import Component, GameManager
-
-from tile import TileEntitySpriteNode
+from kit import serialize_field, Component, GameManager
+from tile import TileMapNode, TileEntitySpriteNode
 
 
 class PlayerMovementComponent(Component):
+    tile_map: TileMapNode = serialize_field(TileMapNode)
+
     node: TileEntitySpriteNode
     game: GameManager
 
@@ -30,6 +31,19 @@ class PlayerMovementComponent(Component):
         if state[pg.K_s]:
             y += speed
 
-        nx, ny = self.node.position
+        if x == 0 and y == 0:
+            return
 
-        self.node.position = x + nx, y + ny
+        nx, ny = self.node.position
+        nx, ny = self.node.position = x + nx, y + ny
+
+        self.update_tile_map_chunks()
+        self.update_tile_map_position(nx, ny)
+
+    def update_tile_map_chunks(self) -> None:
+        ...
+
+    def update_tile_map_position(self, nx: int, ny: int) -> None:
+        screen_w, screen_h = self.game.screen.get_size()
+
+        self.tile_map.inner_position = screen_w / 2 - nx, screen_h / 2 - ny
