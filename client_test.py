@@ -15,6 +15,10 @@ def on_message(update: MessageUpdate) -> None:
     print(f"{message.sender_name}: {message.text}")
 
 
+client.connect()
 client.run()
 
-message = client.send_message("hi", "adolf").wait()
+name = input("enter name: ")
+
+client.authorize(name).wait()
+message = client.send_message("hi").wait()

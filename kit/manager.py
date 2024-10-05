@@ -18,7 +18,6 @@ class Manager:
             if cls is not Manager and Manager in cls.__mro__:
                 cls.set_instance(self)
 
-
     @classmethod
     def set_instance(cls, instance: Manager) -> None:
         cls.instance = instance

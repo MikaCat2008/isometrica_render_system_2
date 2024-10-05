@@ -1,4 +1,5 @@
 import time, json, socket
+from typing import Optional
 from threading import Lock
 
 from ..base import Method, Runnable
@@ -7,18 +8,25 @@ from ..answer import Answer
 
 class ClientSender(Runnable):
     lock: Lock
-    sock: socket.socket
+    sock: Optional[socket.socket]
     answers: dict[int, Answer]
     sending_list: list[tuple[Method, int]]
     next_answer_id: int
     
-    def __init__(self, host: str = "localhost", port: int = 7777) -> None:
+    def __init__(self) -> None:
         self.lock = Lock()
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
+        self.sock = None
         self.answers = {}
         self.sending_list = []
         self.next_answer_id = 0
+
+    def connect(self, host: str, port: int) -> None:
+        self.answers = {}
+        self.sending_list = []
+        self.next_answer_id = 0
+        
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, port))
 
     def send(self, method: Method) -> Answer:
         with self.lock:
@@ -47,6 +55,11 @@ class ClientSender(Runnable):
                     }).encode() + b"\n"
                     for method, answer_id in self.sending_list
                 )
-
-                self.sock.sendall(data)
                 self.sending_list.clear()
+
+                try:
+                    self.sock.sendall(data)
+                except ConnectionError:
+                    self.sock = None
+
+                    return

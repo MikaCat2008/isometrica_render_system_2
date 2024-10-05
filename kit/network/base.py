@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Type, ClassVar, Callable
+from typing import Any, Type, ClassVar, Callable, Optional
 from threading import Thread
 
 from pydantic import BaseModel
@@ -40,22 +40,20 @@ class Runnable:
 
 
 class Sender(Runnable):
-    ...
+    dispatcher: Dispatcher
 
 
 class Dispatcher(Runnable):
     sender: Sender
     handlers: dict[Type[Model], Callable]
-    
+
     def __init__(self, sender: Sender) -> None:
+        sender.dispatcher = sender
         self.sender = sender
         self.handlers = {}
 
-    def process(self, model: Model) -> Any:
-        handler = self.handlers.get(type(model))
-
-        if handler:
-            return handler(model)
+    def get_handler(self, model: Type[Model]) -> Optional[Callable]:
+        return self.handlers.get(model)
 
     def register(self, model: Type[Model], handler: Callable) -> None:
         self.handlers[model] = handler

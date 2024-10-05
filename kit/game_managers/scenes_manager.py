@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ..scene import Scene
+from ..nodes.scene import Scene
 from ..manager import Manager
 
 

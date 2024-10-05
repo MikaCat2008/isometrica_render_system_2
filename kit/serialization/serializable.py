@@ -9,6 +9,8 @@ SerializableT = TypeVar("SerializableT", bound="Serializable")
 class Serializable:
     serialize_fields: ClassVar[dict[str, SerializeField]] = {}
 
+    _pre_initialized: bool = False
+
     def __init_subclass__(cls) -> None:
         cls.serialize_fields = cls.serialize_fields | {
             field_name: field
@@ -16,8 +18,14 @@ class Serializable:
             if isinstance(field, SerializeField)
         }
 
+    def __pre_init__(self) -> None:
+        self._pre_initialized = True
+
     def __init__(self) -> None:
         cls = self.__class__
+
+        if not self._pre_initialized:
+            self.__pre_init__()
 
         for field_name, field in cls.serialize_fields.items():
             if field.default and field_name not in self.__dict__:
@@ -34,23 +42,26 @@ class Serializable:
 
     def __getstate__(self) -> dict:
         cls = self.__class__
-        
+
         return {
             (field_name if field.alias_name is None else field.alias_name): self.__dict__[field_name]
-            for field_name, field in cls.serializable_fields.items()
+            for field_name, field in cls.serialize_fields.items()
         }
     
     def __setstate__(self, state: dict) -> None:
         cls = self.__class__
 
-        for field_name, field in cls.serializable_fields.items():
+        self.__pre_init__()
+
+        for field_name, field in cls.serialize_fields.items():
             field_name = field_name if field.alias_name is None else field.alias_name
             
             setattr(self, field_name, state[field_name])
 
+        self.__init__()
+
     @classmethod
     def deserialize(cls: Type[SerializableT], serialized_data: bytes) -> SerializableT:
         serializable = loads(serialized_data)
-        serializable.__init__()
-        
+
         return serializable

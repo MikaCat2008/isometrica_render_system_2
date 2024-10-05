@@ -1,9 +1,11 @@
 import time
 
+import pygame as pg
 from pygame.time import Clock
 from pygame.event import get as get_events
 from pygame.surface import Surface
 from pygame.display import flip, set_mode
+from pygame.transform import scale
 
 from ..manager import Manager
 from ..game_config import GameConfig
@@ -14,43 +16,61 @@ from .scenes_manager import ScenesManager
 
 
 class GameManager(Manager, init=False):
+    ups: float
     fps: float
-    clock: Clock
+    ups_clock: Clock
+    fps_clock: Clock
+
     ticks: TicksManager
     events: EventsManager
     scenes: ScenesManager
 
     screen: Surface
 
-    _draw_interval: float
-    _update_interval: float
+    max_ups: int
+    max_fps: int
+
+    _screen: Surface
+    _ups_interval: float
+    _fps_interval: float
 
     def __init__(self, config: GameConfig) -> None:
         super().__init__()
 
+        self.ups = 0
         self.fps = 0
-        self.clock = Clock()
+        self.ups_clock = Clock()
+        self.fps_clock = Clock()
+
         self.ticks = TicksManager()
         self.events = EventsManager()
         self.scenes = ScenesManager()
 
-        self.screen = set_mode(
+        self._screen = set_mode(
             size=config.screen_size, 
             flags=config.flags
         )
+        self.set_zoom(1)
 
-        self._draw_interval = 1 / 2400
-        self._update_interval = 1 / 60
+        self.max_ups = 60
+        self.max_fps = 2400
+
+        self._ups_interval = 1 / self.max_ups
+
+    def set_zoom(self, zoom: float) -> None:
+        w, h = self._screen.get_size()
+
+        self.screen = Surface((w / zoom, h / zoom), pg.SRCALPHA)
 
     def update(self) -> None:
         self.ticks.update()
 
     def draw(self) -> None:
+        scale(self.screen, self._screen.get_size(), self._screen)
         flip()
 
     def run(self) -> None:
-        last_draw_time = 0
-        last_update_time = 0
+        last_ups_time = 0
 
         while 1:
             current_time = time.time()
@@ -58,15 +78,15 @@ class GameManager(Manager, init=False):
             for event in get_events():
                 self.events.broadcast(event)
 
-            if current_time - last_update_time > self._update_interval:
+            if current_time - last_ups_time >= self._ups_interval:
                 self.update()
 
-                last_update_time = current_time
+                last_ups_time = current_time
 
-            if current_time - last_draw_time > self._draw_interval:
-                self.draw()
+                self.ups = self.ups_clock.get_fps()
+                self.ups_clock.tick(self.max_ups)
 
-                last_draw_time = current_time
+            self.draw()
 
-            self.fps = self.clock.get_fps()
-            self.clock.tick(2400)
+            self.fps = self.fps_clock.get_fps()
+            self.fps_clock.tick(self.max_fps)

@@ -3,8 +3,17 @@ from kit.network import Method
 from .models import MessageModel
 
 
-class SendMessageMethod(Method):
+class SecuredMethod(Method):
+    token: int
+
+
+class AuthorizeMethod(Method):
+    return_type = int
+
+    name: str
+
+
+class SendMessageMethod(SecuredMethod):
     return_type = MessageModel
 
     text: str
-    sender_name: str

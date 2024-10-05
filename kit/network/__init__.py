@@ -16,5 +16,7 @@ from .server import (
 )
 from .answer import (
     Answer as Answer,
-    AnswerUpdate as AnswerUpdate
+    AnswerUpdate as AnswerUpdate,
+    ExceptionUpdate as ExceptionUpdate,
+    NetworkException as NetworkException
 )

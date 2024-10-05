@@ -41,6 +41,18 @@ class ServerManager(Manager, init=False):
 
         return _
 
+    def on_connection(self, handler: Callable) -> None:
+        return self.dispatcher.on_connection(handler)
+
+    def on_disconnection(self, handler: Callable) -> None:
+        return self.dispatcher.on_disconnection(handler)
+
+    def on_method(self, handler: Callable) -> None:
+        return self.dispatcher.on_method(handler)
+
+    def start(self, host: str = "localhost", port: int = 7777) -> None:
+        self.sender.start(host, port)
+
     def run(self) -> None:
         self.sender.run()
         self.dispatcher.run()
