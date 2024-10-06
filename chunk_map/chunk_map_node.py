@@ -1,133 +1,22 @@
 from __future__ import annotations
 
-import math, time
-from typing import Iterable, Optional, Generator
+import math
+from typing import Iterable, Optional, Generator, TYPE_CHECKING
 from threading import Lock
 
 import pygame as pg
 from pygame.draw import rect as pg_draw_rect
+from pygame.transform import flip
 from pygame.surface import Surface
 
-from kit import Node, DrawableNode
-from nodes import SpriteNode
 from textures_manager import TexturesManager
 
+from kit import Node, DrawableNode
 
-class ChunkEntityNode(DrawableNode):
-    parent: ChunkMapNode
-
-    tiles: dict[tuple[int, int], Tile]
-    is_require_render: bool
-    is_require_last_render: bool
-
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.tiles = {}
-        self.is_require_render = True
-        self.is_require_last_render = False
-
-    def add_tile(self, tile: Tile) -> None:
-        self.tiles[tile.position] = tile
-
-    def remove_tile(self, tile: Tile) -> None:
-        del self.tiles[tile.position]
-
-    def destroy(self) -> None:
-        super().destroy()
-
-        self.parent = None
-        self.is_require_last_render = True
-
-    @property
-    def position(self) -> tuple[int, int]:
-        return super().position
-
-    @position.setter
-    def position(self, position: tuple[int, int]) -> None:
-        _super = super(ChunkEntityNode, ChunkEntityNode)
-        _super.position.__set__(self, position)
-
-        self.is_require_render = True
-
-
-class ChunkEntitySpriteNode(SpriteNode, ChunkEntityNode):
-    @property
-    def texture_name(self) -> str:
-        return super().texture_name
-
-    @texture_name.setter
-    def texture_name(self, texture_name: str) -> None:
-        _super = super(ChunkEntitySpriteNode, ChunkEntitySpriteNode)
-        _super.texture_name.__set__(self, texture_name)
-        
-        self.is_require_render = True
-
-
-class Tile:
-    chunk: Chunk
-    nodes: list[ChunkEntityNode]
-    position: tuple[int, int]
-    texture_name: str
-    render_position: tuple[int, int]
-    is_require_render: bool
-
-    def __init__(self, chunk: Chunk, position: tuple[int, int]) -> None:
-        x, y = position
-        
-        self.chunk = chunk
-        self.nodes = []
-        self.position = position
-        self.texture_name = "grass-tile"
-        self.render_position = x * 16, y * 16
-        self.is_require_render = True
-
-    def add_node(self, node: ChunkEntityNode) -> None:
-        self.nodes.append(node)
-
-    def remove_node(self, node: ChunkEntityNode) -> None:
-        self.nodes.remove(node)
-
-    def update_nodes(self) -> None:
-        for node in self.nodes:
-            node.is_require_render = True
-
-
-class Chunk:
-    nodes_layer: Surface
-    background_layer: Surface
-
-    tiles: list[Tile]
-    position: tuple[int, int]
-    
-    def __init__(self, position: tuple[int, int]) -> None:
-        cx, cy = position
-        
-        self.nodes_layer = Surface((128, 128), pg.SRCALPHA)
-        self.background_layer = Surface((128, 128), pg.SRCALPHA)
-        
-        self.tiles = [
-            Tile(self, (x + cx * 8, y + cy * 8)) 
-            for y in range(8)
-            for x in range(8)
-        ]
-        self.position = position
-
-    def update_top(self) -> None:
-        for tile in self.tiles[:8]:
-            tile.update_nodes()
-
-    def update_bottom(self) -> None:
-        for tile in self.tiles[56:]:
-            tile.update_nodes()
-
-    def update_left(self) -> None:
-        for tile in self.tiles[::8]:
-            tile.update_nodes()
-
-    def update_right(self) -> None:
-        for tile in self.tiles[7::8]:
-            tile.update_nodes()
+if TYPE_CHECKING:
+    from .tile import ChunkTile
+    from .chunk import Chunk
+    from .entity_node import ChunkEntityNode
 
 
 class ChunkMapNode(DrawableNode):
@@ -205,7 +94,7 @@ class ChunkMapNode(DrawableNode):
             if position in self.chunks:
                 del self.chunks[position]
 
-    def get_tile(self, position: tuple[int, int]) -> Optional[Tile]:
+    def get_tile(self, position: tuple[int, int]) -> Optional[ChunkTile]:
         x, y = position
         
         cx, tx = divmod(x, 8)
@@ -239,7 +128,7 @@ class ChunkMapNode(DrawableNode):
             if node.is_require_render or node.is_require_last_render
         )
     
-    def get_render_tiles(self) -> Iterable[Tile]:
+    def get_render_tiles(self) -> Iterable[ChunkTile]:
         return (
             tile
             for chunk in self.chunks.values()
@@ -251,7 +140,7 @@ class ChunkMapNode(DrawableNode):
         yield self
 
     def update(self) -> bool:
-        cached_tiles: dict[tuple[int, int], Tile] = {}
+        cached_tiles: dict[tuple[int, int], ChunkTile] = {}
 
         with self._lock:
             self.nodes = [
@@ -309,7 +198,7 @@ class ChunkMapNode(DrawableNode):
 
             nodes_layer.blits((
                 (
-                    node.image, 
+                    flip(node.image, node.flip_x, node.flip_y), 
                     (rtx % 128, rty % 128), 
                     (
                         rtx - node.render_position[0],

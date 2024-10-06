@@ -2,11 +2,11 @@ import pygame as pg
 from pygame.key import get_pressed
 
 from kit import Component, GameManager
-from chunk_map import ChunkEntitySpriteNode
+from chunk_map import ChunkEntityAnimatedSpriteNode
 
 
 class PlayerMovementComponent(Component):
-    node: ChunkEntitySpriteNode
+    node: ChunkEntityAnimatedSpriteNode
     game: GameManager
 
     def __init__(self) -> None:
@@ -35,7 +35,16 @@ class PlayerMovementComponent(Component):
             y += speed
 
         if x == 0 and y == 0:
+            player.animation_name = "player-0-stay"
+            
             return
+        
+        if x > 0:
+            player.flip_x = False
+        if x < 0:
+            player.flip_x = True
+        
+        player.animation_name = "player-0-walk"
 
         nx, ny = player.position
         player.position = x + nx, y + ny

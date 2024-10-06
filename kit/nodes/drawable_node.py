@@ -10,12 +10,16 @@ class DrawableNode(Node):
     _position: tuple[int, int] = serialize_field(tuple[int, int], lambda: (0, 0), "position")
 
     image: Surface
+    flip_x: bool
+    flip_y: bool
     render_position: tuple[int, int]
 
     def __pre_init__(self) -> None:
         super().__pre_init__()
 
         self.image = Surface((1, 1))    
+        self.flip_x = False
+        self.flip_y = False
         
     def update_position(self) -> None:
         x, y = self.position

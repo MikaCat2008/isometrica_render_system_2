@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from kit import Node, GameConfig, GameManager
-from textures_manager import TexturesManager
 
 from nodes import TextNode
-from chunk_map import ChunkMapNode, ChunkEntitySpriteNode
+from tile_map import TileMapNode
+from chunk_map import ChunkMapNode, ChunkEntityAnimatedSpriteNode
 from components import (
     UpsTextComponent, 
     FpsTextComponent, 
     ChunkMapCameraComponent,
     PlayerMovementComponent
 )
+from textures_manager import TexturesManager
 
 
 class Game(GameManager, init=False):
@@ -28,10 +29,11 @@ class Game(GameManager, init=False):
                     ChunkMapNode().update_fields(
                         tag="ChunkMap",
                         nodes=[
-                            ChunkEntitySpriteNode().update_fields(
+                            ChunkEntityAnimatedSpriteNode().update_fields(
                                 tag="MainPlayer",
                                 position=(16, 32),
-                                texture_name="player-1",
+                                frame_rate=10,
+                                animation_name="player-0-stay",
                                 components=[
                                     PlayerMovementComponent()
                                 ]
@@ -40,6 +42,10 @@ class Game(GameManager, init=False):
                         components=[
                             ChunkMapCameraComponent()
                         ]
+                    ),
+                    TileMapNode().update_fields(
+                        tag="InventoryMenu",
+                        size=(3, 3)
                     ),
                     TextNode().update_fields(
                         position=(0, 0),

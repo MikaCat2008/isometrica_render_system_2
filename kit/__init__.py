@@ -17,5 +17,5 @@ from .serialization import (
 )
 
 from .manager import Manager as Manager
+from .animation import Animation as Animation
 from .game_config import GameConfig as GameConfig
-

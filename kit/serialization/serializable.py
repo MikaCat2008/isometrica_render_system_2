@@ -19,7 +19,11 @@ class Serializable:
         }
 
     def __pre_init__(self) -> None:
+        cls = self.__class__
         self._pre_initialized = True
+
+        for field_name in cls.serialize_fields.keys():
+            setattr(self, field_name, None)
 
     def __init__(self) -> None:
         cls = self.__class__
@@ -28,7 +32,7 @@ class Serializable:
             self.__pre_init__()
 
         for field_name, field in cls.serialize_fields.items():
-            if field.default and field_name not in self.__dict__:
+            if field.default and self.__dict__.get(field_name) is None:
                 setattr(self, field_name if field.alias_name is None else field.alias_name, field.default())
 
     def serialize(self) -> bytes:

@@ -22,3 +22,10 @@ class TicksManager(Manager, init=False):
 
     def register(self, ticks: int, listener: Callable) -> None:
         self.listeners.append((ticks, listener))
+
+    def unregister(self, listener: Callable) -> None:
+        self.listeners = [
+            pair
+            for pair in self.listeners
+            if pair[1] is not listener
+        ]
