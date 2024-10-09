@@ -27,5 +27,5 @@ class TicksManager(Manager, init=False):
         self.listeners = [
             pair
             for pair in self.listeners
-            if pair[1] is not listener
+            if pair[1] != listener
         ]

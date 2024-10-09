@@ -63,7 +63,7 @@ class ChunkMapCameraComponent(Component):
                         ),
                         texture_name=f"tree-{random.randint(0, 1)}"
                     )
-                    for _ in range(random.randint(10, 20))
+                    for _ in range(50)
                 )
 
             self._busy = False

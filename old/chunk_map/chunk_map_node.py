@@ -150,7 +150,7 @@ class ChunkMapNode(DrawableNode):
             ]
 
             for i, node in enumerate(self.get_render_nodes()):
-                if i == 64:
+                if i == 1:
                     break
 
                 tiles = node.tiles
@@ -220,7 +220,7 @@ class ChunkMapNode(DrawableNode):
 
             rtx, rty = tile.render_position
             tile.chunk.background_layer.blit(
-                textures_manager.get_texture(tile.texture_name),
+                textures_manager.get_texture(tile.texture_name)[1],
                 (rtx % 128, rty % 128)
             )
             tile.is_require_render = False

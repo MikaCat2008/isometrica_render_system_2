@@ -17,7 +17,7 @@ class FpsTextComponent(Component):
         super().__init__()
 
         self.game = GameManager.get_instance()
-        self.game.ticks.register(5, self.update_fps)
+        self.game.ticks.register(1, self.update_fps)
 
     def update_fps(self) -> None:
         fps = self.game.fps

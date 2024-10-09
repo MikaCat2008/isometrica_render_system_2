@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TypeVar, Optional, Iterable, Generator, TYPE_CHECKING
+import time
+from typing import TypeVar, Optional, Iterable, TYPE_CHECKING
 
 from ..manager import Manager
 from ..serialization import serialize_field, Serializable
@@ -20,7 +21,7 @@ class Node(Serializable):
 
     scene: Optional[Scene]
     parent: Optional[Node]
-    is_alive: bool = True
+    is_alive: bool
 
     def __pre_init__(self) -> None:
         super().__pre_init__()
@@ -45,18 +46,12 @@ class Node(Serializable):
             for node in nodes
         )
 
-    def get_nodes(self) -> Generator[Node, None, None]:
-        yield self
-        
-        for node in self.nodes:
-            yield from node.get_nodes()
-
     def get_node_by_tag(self, tag: str) -> Optional[Node]:
         for node in self.nodes:
             if node.tag == tag:
                 return node
 
-            if (subnode := node.get_node_by_tag(tag)):
+            if subnode := node.get_node_by_tag(tag):
                 return subnode
 
         return None
