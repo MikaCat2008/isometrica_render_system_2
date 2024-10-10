@@ -10,8 +10,7 @@ from pygame.key import get_pressed
 from kit import Node, Component, GameConfig, GameManager, DrawableNode
 
 from nodes import TextNode
-from tile_map import Sprite, TileMapNode
-# from chunk_map import ChunkMapNode, ChunkEntityAnimatedSpriteNode
+from tile_map import Sprite, TileMapNode, AnimatedSprite
 from components import (
     UpsTextComponent, 
     FpsTextComponent, 
@@ -37,10 +36,11 @@ class EntityNode(Node):
 
         game = GameManager.get_instance()
         game.ticks.register(1, self._find_tile_map)
+
         self.tile_map = None
 
     def _find_tile_map(self) -> None:
-        self.tile_map: TileMapNode = self.scene.root_node.get_node_by_tag("TileMap")
+        self.tile_map = self.scene.root_node.get_node_by_tag("TileMap")
 
         if self.tile_map is None:
             return
@@ -57,47 +57,43 @@ class EntityNode(Node):
 class TreeNode(EntityNode):
     speed: int
     offset: int
-    position: tuple[int, int]
 
     def __init__(self):
         super().__init__()
 
         self.sprite = Sprite(
-            texture_name="tree-0", 
+            "tree-0", 
             flip_x=False, 
             flip_y=False 
         )
         self.speed = random.randint(20, 40)
         self.offset = random.randint(0, 30)
-        self.position = random.randint(0, 522), random.randint(32, 288 + 128)
+        self.sprite.position = random.randint(0, 522), random.randint(32, 288 + 128)
 
-    def update(self):
-        sin_y = sin((self.scene.game.ticks.ticks + self.offset) / self.speed)
-
-        self.sprite.position = (
-            self.position[0] - sin_y, 
-            self.position[1]
+    def update(self) -> bool:
+        self.sprite.rotation = int(
+            sin((self.scene.game.ticks.ticks + self.offset) / self.speed) * 2
         )
-        self.sprite.rotation = int(sin_y * 2)
 
         return super().update()
 
 
 class PlayerNode(EntityNode):
+    sprite: AnimatedSprite
+
     def __init__(self):
         super().__init__()
 
-        game = GameManager.get_instance()
-        game.ticks.register(1, self.movement)
-
-        self.sprite = Sprite(
+        self.sprite = AnimatedSprite(
+            "player-0-walk", 
             position=(16, 32),
-            texture_name="player-1", 
             flip_x=False, 
             flip_y=False 
         )
 
-    def movement(self) -> None:
+    def update(self) -> bool:
+        super().update()
+
         x, y = 0, 0
         speed = 1
         state = get_pressed()
@@ -112,12 +108,27 @@ class PlayerNode(EntityNode):
             y += speed
 
         if x or y:
+            if x < 0:
+                self.sprite.flip_x = True
+            elif x > 0:
+                self.sprite.flip_x = False
+
             sx, sy = self.sprite.position
 
-            w, h = self.scene.game.screen.get_size()
-
             self.sprite.position = sx + x, sy + y
-            self.tile_map.offset = sx + x - w // 2, sy + y - h // 2
+            self.sprite.animation_name = "player-0-walk"
+        else:
+            self.sprite.animation_name = "player-0-stay"
+
+        if self.tile_map is None:
+            return self.is_alive
+
+        w, h = self.scene.game.screen.get_size()
+        sx, sy = self.sprite.position
+
+        self.tile_map.offset = sx - w // 2, sy - h // 2
+
+        return self.is_alive
 
 
 class TileMapTilesComponent(Component):
@@ -204,7 +215,7 @@ class Game(GameManager, init=False):
                     Node().update_fields(
                         nodes=[PlayerNode()] + [
                             TreeNode()
-                            for _ in range(500)
+                            for _ in range(1500)
                         ]
                     ),
                     TileMapNode().update_fields(

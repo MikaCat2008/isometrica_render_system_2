@@ -46,6 +46,9 @@ class Sprite:
     requires_render: bool
     required_tiles_update: bool
 
+    _required_image_update: bool
+    _required_tiles_update: bool
+
     _flip_x: bool
     _flip_y: bool
     _position: tuple[int, int]
@@ -63,30 +66,38 @@ class Sprite:
         self.tiles = deque()
         self.is_alive = True
 
+        self._required_image_update = True
+        self._required_tiles_update = True
+
         self._flip_x = flip_x
         self._flip_y = flip_y
         self._position = position
         self._rotation = rotation
         self._texture_name = texture_name
         
-        self.update_image()
-        self.update_render_position()
+        self.update()
 
-    def update_image(self) -> None:
-        textures = TexturesManager.get_instance()
+    def update(self) -> bool:
+        if self._required_image_update:
+            textures = TexturesManager.get_instance()
 
-        self.size, self.image = textures.get_texture(
-            self._texture_name, self._rotation, self._flip_x, self._flip_y
-        )
-        self.requires_render = True
-
-    def update_render_position(self) -> None:
-        x, y = self._position
-        rw, rh = self.image.get_size()
+            self.size, self.image = textures.get_texture(
+                self._texture_name, self._rotation, self._flip_x, self._flip_y
+            )
+            
+            self.requires_render = True
+            self._required_image_update = False
+        if self._required_tiles_update:
+            x, y = self._position
+            rw, rh = self.image.get_size()
         
-        self.render_position = int(x - rw / 2), int(y - rh / 2 - self.size[1] / 2)
-        self.requires_render = True
-        self.required_tiles_update = True
+            self.render_position = int(x - rw / 2), int(y - rh / 2 - self.size[1] / 2)
+
+            self.requires_render = True
+            self.required_tiles_update = True
+            self._required_tiles_update = False
+
+        return self.is_alive
 
     @property
     def position(self) -> tuple[int, int]:
@@ -98,7 +109,7 @@ class Sprite:
             return
 
         self._position = position
-        self.update_render_position()
+        self._required_tiles_update = True
 
     @property
     def rotation(self) -> int:
@@ -110,8 +121,8 @@ class Sprite:
             return
         
         self._rotation = rotation
-        self.update_image()
-        self.update_render_position()
+        self._required_image_update = True
+        self._required_tiles_update = True
 
     @property
     def texture_name(self) -> str:
@@ -123,8 +134,8 @@ class Sprite:
             return
 
         self._texture_name = texture_name
-        self.update_image()
-        self.update_render_position()
+        self._required_image_update = True
+        self._required_tiles_update = True
 
     @property
     def flip_x(self) -> bool:
@@ -136,7 +147,7 @@ class Sprite:
             return
         
         self._flip_x = flip_x
-        self.update_image()
+        self._required_image_update = True
 
     @property
     def flip_y(self) -> bool:
@@ -148,7 +159,58 @@ class Sprite:
             return
         
         self._flip_y = flip_y
-        self.update_image()
+        self._required_image_update = True
+
+
+class AnimatedSprite(Sprite):
+    frame_i: int
+    frame_rate: int
+    frame_index: int
+
+    animation: list[str]
+    _animation_name: str
+
+    def __init__(
+        self, 
+        animation_name: str,
+        position: tuple[int, int] = (0, 0), 
+        rotation: int = 0, 
+        flip_x: bool = False, 
+        flip_y: bool = False
+    ):
+        self.frame_i = 0
+        self.frame_rate = 30
+        self.frame_index = 0
+
+        self._texture_name = ""
+        self._animation_name = ""
+        self.animation_name = animation_name
+
+        super().__init__(self.animation[0], position, rotation, flip_x, flip_y)
+
+    def update(self) -> bool:
+        if self.frame_i % self.frame_rate == 0:
+            self.frame_index = (self.frame_index + 1) % len(self.animation)
+            self.texture_name = self.animation[self.frame_index]
+
+        self.frame_i += 1
+
+        return super().update()
+
+    @property
+    def animation_name(self) -> str:
+        return self._animation_name
+
+    @animation_name.setter
+    def animation_name(self, animation_name: str) -> None:
+        if self._animation_name == animation_name:
+            return
+
+        texture_manager = TexturesManager.get_instance()
+
+        self.frame_i = 0
+        self.animation = texture_manager.get_animation(animation_name)
+        self._animation_name = animation_name
 
 
 class TileMap:
@@ -231,6 +293,7 @@ class TileMap:
             for position in list(sprite.tiles):
                 tile = self.tiles[position]
                 tile.remove_sprite(sprite)
+                tile.requires_render = True
 
     def update_tiles(self) -> None:
         self.tiles = {
@@ -437,7 +500,7 @@ class TileMapNode(DrawableNode):
         self.tile_map.remove_sprites(
             sprite
             for sprite in self.sprites
-            if not sprite.is_alive
+            if not sprite.update()
         )
 
         self.tile_map.update_sprites(

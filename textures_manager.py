@@ -28,17 +28,13 @@ class TexturesManager(Manager, init=False):
         self.cached_textures = {}
         self.animations = {
             "": Animation(),
-            "player-0-stay": Animation().update_fields(
-                frames=[
-                    "player-0-0"
-                ]
-            ),
-            "player-0-walk": Animation().update_fields(
-                frames=[
-                    "player-0-0",
-                    "player-0-1"
-                ]
-            )
+            "player-0-stay": [
+                "player-0-0"
+            ],
+            "player-0-walk": [
+                "player-0-0",
+                "player-0-1"
+            ]
         }
 
     def load_texture(self, path: str, size: Optional[tuple[int, int]] = None) -> Surface:

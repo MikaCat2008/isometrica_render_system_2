@@ -30,7 +30,6 @@ class GameManager(Manager, init=False):
     max_ups: int
     max_fps: int
 
-    _screen: Surface
     _ups_interval: float
     _fps_interval: float
 
@@ -46,27 +45,20 @@ class GameManager(Manager, init=False):
         self.events = EventsManager()
         self.scenes = ScenesManager()
 
-        self._screen = set_mode(
+        self.screen = set_mode(
             size=config.screen_size, 
             flags=config.flags
         )
-        self.set_zoom(1)
 
         self.max_ups = 60
         self.max_fps = 2400
 
         self._ups_interval = 1 / self.max_ups
 
-    def set_zoom(self, zoom: float) -> None:
-        w, h = self._screen.get_size()
-
-        self.screen = Surface((w / zoom, h / zoom), pg.SRCALPHA)
-
     def update(self) -> None:
         self.ticks.update()
 
     def draw(self) -> None:
-        scale(self.screen, self._screen.get_size(), self._screen)
         flip()
 
     def run(self) -> None:
