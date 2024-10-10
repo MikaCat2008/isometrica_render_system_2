@@ -7,6 +7,7 @@ from threading import Lock
 from collections import deque
 
 import pygame as pg
+from pygame.rect import Rect
 from pygame.surface import Surface
 
 from kit import DrawableNode
@@ -48,7 +49,7 @@ class Sprite:
     _flip_x: bool
     _flip_y: bool
     _position: tuple[int, int]
-    _rotation: float
+    _rotation: int
     _texture_name: str
 
     def __init__(
@@ -100,11 +101,11 @@ class Sprite:
         self.update_render_position()
 
     @property
-    def rotation(self) -> float:
+    def rotation(self) -> int:
         return self._rotation
     
     @rotation.setter
-    def rotation(self, rotation: float) -> None:
+    def rotation(self, rotation: int) -> None:
         if rotation == self._rotation:
             return
         
@@ -152,9 +153,11 @@ class Sprite:
 
 class TileMap:
     tiles: dict[tuple[int, int], Tile]
+    tile_size: int
     
-    def __init__(self) -> None:
+    def __init__(self, tile_size: int) -> None:
         self.tiles = {}
+        self.tile_size = tile_size
 
     def create_tile(self, position: tuple[int, int]) -> Tile:
         return Tile(position)
@@ -163,11 +166,11 @@ class TileMap:
         w, h = sprite.image.get_size()
         x, y = sprite.render_position
 
-        min_x = x // 16
-        min_y = y // 16
+        min_x = x // self.tile_size
+        min_y = y // self.tile_size
 
-        max_x = ceil((x + w) / 16)
-        max_y = ceil((y + h) / 16)
+        max_x = ceil((x + w) / self.tile_size)
+        max_y = ceil((y + h) / self.tile_size)
         
         return {
             (tx, ty)
@@ -198,28 +201,30 @@ class TileMap:
             if sprite.required_tiles_update:
                 covered_tiles = self.get_covered_tiles(sprite)
                 sprite.required_tiles_update = False
-            else:
-                covered_tiles = tiles
 
-            self.tiles |= {
-                position: self.create_tile(position)
-                for position in covered_tiles
-                if position not in self.tiles
-            }
+                self.tiles |= {
+                    position: self.create_tile(position)
+                    for position in covered_tiles
+                    if position not in self.tiles
+                }
+
+                for position in covered_tiles:
+                    if position in tiles:
+                        continue
+
+                    tile = self.tiles[position]
+                    tile.add_sprite(sprite)
+                    tile.requires_render = True
 
             for position in tiles:
+                tile = self.tiles[position]
+                tile.requires_render = True
+
                 if position in covered_tiles:
                     continue
 
-                tile = self.tiles[position]
                 tile.remove_sprite(sprite)
-
-            for position in covered_tiles:
-                if position in tiles:
-                    continue
-
-                tile = self.tiles[position]
-                tile.add_sprite(sprite)
+                tile.requires_render = True
 
     def remove_sprites(self, sprites: Iterable[Sprite]) -> None:
         for sprite in sprites:
@@ -238,8 +243,8 @@ class TileMap:
 class TSTileMap(TileMap):
     lock: Lock
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, tile_size: int) -> None:
+        super().__init__(tile_size)
 
         self.lock = Lock()
 
@@ -270,13 +275,16 @@ class Chunk:
 
     def __init__(self, tile_map: ChunkedTileMap, position: tuple[int, int]) -> None:
         self.tiles = 1
-        self.image = Surface((tile_map.chunk_size * 16, tile_map.chunk_size * 16))
+        self.image = Surface((
+            tile_map.chunk_size * tile_map.tile_size, 
+            tile_map.chunk_size * tile_map.tile_size
+        ))
         self.tile_map = tile_map
         self.position = position
-        self.background = Surface((16, 16))
+        self.background = Surface((tile_map.tile_size, tile_map.tile_size))
         self.render_position = (
-            position[0] * 16 * tile_map.chunk_size, 
-            position[1] * 16 * tile_map.chunk_size
+            position[0] * tile_map.tile_size * tile_map.chunk_size, 
+            position[1] * tile_map.tile_size * tile_map.chunk_size
         )
 
     def draw_tiles(self, tiles: deque[ChunkedTile]) -> None:
@@ -297,23 +305,24 @@ class Chunk:
         None
     ]:
         x, y = tile.position
-        arx, ary = x * 16, y * 16
-        relative_render_position = x % self.tile_map.chunk_size * 16, y % self.tile_map.chunk_size * 16
+        arx, ary = x * self.tile_map.tile_size, y * self.tile_map.tile_size
+        relative_render_position = (
+            x % self.tile_map.chunk_size * self.tile_map.tile_size, 
+            y % self.tile_map.chunk_size * self.tile_map.tile_size
+        )
 
         yield self.background, relative_render_position
 
-        for sprite in tile.sprites:
-            render_data = (
+        for sprite in sorted(tile.sprites, key=lambda s: s.position[1]):
+            yield (
                 sprite.image,
                 relative_render_position,
                 (
                     arx - sprite.render_position[0],
                     ary - sprite.render_position[1],
-                    16, 16
+                    self.tile_map.tile_size, self.tile_map.tile_size
                 )
             )
-
-            yield render_data
 
 
 class ChunkedTile(Tile):
@@ -333,8 +342,8 @@ class ChunkedTileMap(TileMap):
     chunks: dict[tuple[int, int], Chunk]
     chunk_size: int
 
-    def __init__(self, chunk_size: int = 8):
-        super().__init__()
+    def __init__(self, tile_size: int = 16, chunk_size: int = 8):
+        super().__init__(tile_size)
 
         self.chunks = {}
         self.chunk_size = chunk_size
@@ -356,14 +365,29 @@ class ChunkedTileMap(TileMap):
         
         return chunk
 
-    def update(self) -> None:
-        self.update_tiles()
+    def update(self, size: tuple[int, int], offset: tuple[int, int]) -> None:
+        self.update_tiles(size, offset)
         self.update_chunks()
 
-    def update_tiles(self) -> None:
+    def update_tiles(self, size: tuple[int, int], offset: tuple[int, int]) -> None:
         update_chunks: dict[tuple[int, int], deque[ChunkedTile]] = {}
 
-        for tile in self.tiles.values():
+        rect = Rect(
+            offset[0] - self.tile_size, 
+            offset[1] - self.tile_size, 
+            size[0] + self.tile_size * 2,
+            size[1] + self.tile_size * 2
+        )
+
+        for (x, y), tile in self.tiles.items():
+            if not tile.requires_render:
+                continue
+
+            if not rect.contains(x * 16, y * 16, self.tile_size, self.tile_size):
+                continue
+
+            tile.requires_render = False
+            
             chunk_position = tile.chunk.position
 
             if (tiles := update_chunks.get(chunk_position)) is None:
@@ -391,7 +415,7 @@ class TSChunkedTileMap(ChunkedTileMap, TSTileMap):
 
 
 class TileMapNode(DrawableNode):
-    offset: tuple[int, int]
+    _offset: tuple[int, int]
     sprites: deque[Sprite]
     tile_map: TSChunkedTileMap
 
@@ -415,13 +439,14 @@ class TileMapNode(DrawableNode):
             for sprite in self.sprites
             if not sprite.is_alive
         )
+
         self.tile_map.update_sprites(
             sprite 
             for sprite in self.sprites
             if sprite.is_alive and sprite.requires_render
         )
 
-        self.tile_map.update()
+        self.tile_map.update(self.scene.game.screen.get_size(), self.offset)
 
         self.sprites = [
             sprite

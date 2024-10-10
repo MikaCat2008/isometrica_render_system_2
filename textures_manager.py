@@ -1,6 +1,8 @@
+from typing import Optional
+
 from pygame.image import load as pg_load
 from pygame.surface import Surface
-from pygame.transform import flip, rotate
+from pygame.transform import flip, scale, rotate
 
 from kit import Manager, Animation
 
@@ -39,15 +41,19 @@ class TexturesManager(Manager, init=False):
             )
         }
 
-    def load_texture(self, path: str) -> Surface:
-        return pg_load("assets/" + path).convert_alpha()
+    def load_texture(self, path: str, size: Optional[tuple[int, int]] = None) -> Surface:
+        texture = pg_load("assets/" + path).convert_alpha()
+        
+        if size:
+            return scale(texture, size)
+        return texture
 
     def get_texture(
         self, 
         texture_name: str,
         rotation: float,
         flip_x: bool,
-        flip_y: bool,
+        flip_y: bool
     ) -> tuple[tuple[int, int], Surface]:
         data = texture_name, rotation, flip_x, flip_y
 
