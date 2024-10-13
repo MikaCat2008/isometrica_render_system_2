@@ -8,7 +8,8 @@ from .game_managers import (
     GameManager as GameManager,
     TicksManager as TicksManager,
     EventsManager as EventsManager,
-    ScenesManager as ScenesManager
+    ScenesManager as ScenesManager,
+    ResourcesManager as ResourcesManager
 )
 from .serialization import (
     serialize_field as serialize_field,
@@ -19,3 +20,10 @@ from .serialization import (
 from .manager import Manager as Manager
 from .animation import Animation as Animation
 from .game_config import GameConfig as GameConfig
+
+
+def destroy(node: Node, timeout: float = 0) -> None:
+    if node.scene:
+        node.scene.destroy(node, timeout)
+    else:
+        node.destroy()

@@ -4,14 +4,14 @@ import time
 from math import ceil
 from typing import Union, Iterable, Generator, Optional
 from threading import Lock
+from itertools import chain
 from collections import deque
 
 import pygame as pg
 from pygame.rect import Rect
 from pygame.surface import Surface
 
-from kit import DrawableNode
-from textures_manager import TexturesManager
+from kit import DrawableNode, ResourcesManager
 
 
 class Tile:
@@ -19,20 +19,36 @@ class Tile:
     sprites: deque[Sprite]
     position: tuple[int, int]
     requires_render: bool
+    requires_update: bool
 
     def __init__(self, position: tuple[int, int]) -> None:
         self.is_new = True
         self.sprites = deque()
         self.position = position
         self.requires_render = True
+        self.requires_update = True
+
+    def _sort_key(self, sprite: Sprite) -> int:
+        return sprite.position[1]
+
+    def update(self) -> bool:
+        if self.requires_update:
+            self.sprites = deque(sorted(self.sprites, key=self._sort_key))
+            self.requires_update = False
+
+        return bool(self.sprites)
 
     def add_sprite(self, sprite: Sprite) -> None:
         sprite.tiles.append(self.position)
         self.sprites.append(sprite)
+        self.requires_update = True
+        self.requires_render = True
 
     def remove_sprite(self, sprite: Sprite) -> None:
         sprite.tiles.remove(self.position)
         self.sprites.remove(sprite)
+        self.requires_update = True
+        self.requires_render = True
 
 
 class Sprite:
@@ -79,7 +95,7 @@ class Sprite:
 
     def update(self) -> bool:
         if self._required_image_update:
-            textures = TexturesManager.get_instance()
+            textures = ResourcesManager.get_instance()
 
             self.size, self.image = textures.get_texture(
                 self._texture_name, self._rotation, self._flip_x, self._flip_y
@@ -206,7 +222,7 @@ class AnimatedSprite(Sprite):
         if self._animation_name == animation_name:
             return
 
-        texture_manager = TexturesManager.get_instance()
+        texture_manager = ResourcesManager.get_instance()
 
         self.frame_i = 0
         self.animation = texture_manager.get_animation(animation_name)
@@ -276,7 +292,6 @@ class TileMap:
 
                     tile = self.tiles[position]
                     tile.add_sprite(sprite)
-                    tile.requires_render = True
 
             for position in tiles:
                 tile = self.tiles[position]
@@ -286,20 +301,18 @@ class TileMap:
                     continue
 
                 tile.remove_sprite(sprite)
-                tile.requires_render = True
 
     def remove_sprites(self, sprites: Iterable[Sprite]) -> None:
         for sprite in sprites:
             for position in list(sprite.tiles):
                 tile = self.tiles[position]
                 tile.remove_sprite(sprite)
-                tile.requires_render = True
 
     def update_tiles(self) -> None:
         self.tiles = {
             position: tile
             for position, tile in self.tiles.items()
-            if tile.sprites
+            if tile.update()
         }
 
 
@@ -374,18 +387,21 @@ class Chunk:
             y % self.tile_map.chunk_size * self.tile_map.tile_size
         )
 
-        yield self.background, relative_render_position
-
-        for sprite in sorted(tile.sprites, key=lambda s: s.position[1]):
-            yield (
-                sprite.image,
-                relative_render_position,
+        return chain(
+            ((self.background, relative_render_position), ),
+            (
                 (
-                    arx - sprite.render_position[0],
-                    ary - sprite.render_position[1],
-                    self.tile_map.tile_size, self.tile_map.tile_size
+                    sprite.image,
+                    relative_render_position,
+                    (
+                        arx - sprite.render_position[0],
+                        ary - sprite.render_position[1],
+                        self.tile_map.tile_size, self.tile_map.tile_size
+                    )
                 )
+                for sprite in tile.sprites
             )
+        )
 
 
 class ChunkedTile(Tile):
@@ -428,8 +444,8 @@ class ChunkedTileMap(TileMap):
         
         return chunk
 
-    def update(self, size: tuple[int, int], offset: tuple[int, int]) -> None:
-        self.update_tiles(size, offset)
+    def update(self, size: tuple[int, int], offset: tuple[int, int]) -> None:        
+        self.update_tiles(size, offset)        
         self.update_chunks()
 
     def update_tiles(self, size: tuple[int, int], offset: tuple[int, int]) -> None:
@@ -478,7 +494,7 @@ class TSChunkedTileMap(ChunkedTileMap, TSTileMap):
 
 
 class TileMapNode(DrawableNode):
-    _offset: tuple[int, int]
+    offset: tuple[int, int]
     sprites: deque[Sprite]
     tile_map: TSChunkedTileMap
 
@@ -502,7 +518,7 @@ class TileMapNode(DrawableNode):
             for sprite in self.sprites
             if not sprite.update()
         )
-
+        
         self.tile_map.update_sprites(
             sprite 
             for sprite in self.sprites

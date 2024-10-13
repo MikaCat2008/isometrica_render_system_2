@@ -4,38 +4,21 @@ from pygame.image import load as pg_load
 from pygame.surface import Surface
 from pygame.transform import flip, scale, rotate
 
-from kit import Manager, Animation
+from ..manager import Manager
+from ..animation import Animation
 
 
-class TexturesManager(Manager, init=False):
+class ResourcesManager(Manager, init=False):
+    textures: dict[str, Surface]
+    animations: dict[str, list[str]]
     cached_textures: dict[tuple[str, float, bool, bool], Surface]
-    
-    _textures: dict[str, Surface]
 
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
-
-        self._textures = {
-            "tree-0": self.load_texture("tree-0.png"),
-            "tree-1": self.load_texture("tree-1.png"),
-
-            "player-0-0": self.load_texture("player-0-0.png"),
-            "player-0-1": self.load_texture("player-0-1.png"),
-            "player-1": self.load_texture("player-1.png"),
-
-            "grass-tile": self.load_texture("grass-tile.png"),
-        }
+        
+        self.textures = {}
+        self.animations = {}
         self.cached_textures = {}
-        self.animations = {
-            "": Animation(),
-            "player-0-stay": [
-                "player-0-0"
-            ],
-            "player-0-walk": [
-                "player-0-0",
-                "player-0-1"
-            ]
-        }
 
     def load_texture(self, path: str, size: Optional[tuple[int, int]] = None) -> Surface:
         texture = pg_load("assets/" + path).convert_alpha()
@@ -54,9 +37,9 @@ class TexturesManager(Manager, init=False):
         data = texture_name, rotation, flip_x, flip_y
 
         if data in self.cached_textures:
-            return self._textures[texture_name].get_size(), self.cached_textures[data]
+            return self.textures[texture_name].get_size(), self.cached_textures[data]
 
-        cached_texture = self._textures[texture_name]
+        cached_texture = self.textures[texture_name]
         size = cached_texture.get_size()
 
         if rotation:

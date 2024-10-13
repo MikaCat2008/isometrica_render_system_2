@@ -1,11 +1,9 @@
 import time
 
-import pygame as pg
 from pygame.time import Clock
 from pygame.event import get as get_events
 from pygame.surface import Surface
 from pygame.display import flip, set_mode
-from pygame.transform import scale
 
 from ..manager import Manager
 from ..game_config import GameConfig

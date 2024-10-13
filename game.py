@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 from math import sin
-from typing import Optional
 
 import pygame as pg
 from pygame.key import get_pressed
@@ -10,48 +9,16 @@ from pygame.key import get_pressed
 from kit import Node, Component, GameConfig, GameManager, DrawableNode
 
 from nodes import TextNode
+from entity import EntityNode
 from tile_map import Sprite, TileMapNode, AnimatedSprite
 from components import (
     UpsTextComponent, 
     FpsTextComponent, 
-    # ChunkMapCameraComponent,
-    # PlayerMovementComponent
+    TileMapTilesComponent,
+    TileMapChunksComponent,
+    TileMapSpritesComponent
 )
-from textures_manager import TexturesManager
-
-
-def destroy(node: Node, timeout: float = 0) -> None:
-    if node.scene:
-        node.scene.destroy(node, timeout)
-    else:
-        node.destroy()
-
-
-class EntityNode(Node):
-    sprite: Sprite
-    tile_map: Optional[TileMapNode]
-
-    def __init__(self) -> None:
-        super().__init__()
-
-        game = GameManager.get_instance()
-        game.ticks.register(1, self._find_tile_map)
-
-        self.tile_map = None
-
-    def _find_tile_map(self) -> None:
-        self.tile_map = self.scene.root_node.get_node_by_tag("TileMap")
-
-        if self.tile_map is None:
-            return
-        
-        game = GameManager.get_instance()
-        game.ticks.unregister(self._find_tile_map)
-        self.tile_map.add_sprites([self.sprite])
-
-    def destroy(self) -> None:
-        self.is_alive = False
-        self.sprite.is_alive = False
+from resources import Resources
 
 
 class TreeNode(EntityNode):
@@ -86,7 +53,7 @@ class PlayerNode(EntityNode):
 
         self.sprite = AnimatedSprite(
             "player-0-walk", 
-            position=(16, 32),
+            position=(16 + 512 / 2, 32 + 288 / 2),
             flip_x=False, 
             flip_y=False 
         )
@@ -131,80 +98,15 @@ class PlayerNode(EntityNode):
         return self.is_alive
 
 
-class TileMapTilesComponent(Component):
-    node: TextNode
-    
-    def __init__(self):
-        super().__init__()
-
-        self.game = GameManager.get_instance()
-        self.game.ticks.register(10, self._find_tile_map)
-    
-    def _find_tile_map(self) -> None:
-        self.tile_map: TileMapNode = self.node.scene.root_node.get_node_by_tag("TileMap")
-
-        if self.tile_map is None:
-            return
-        
-        self.game.ticks.unregister(self._find_tile_map)
-        self.game.ticks.register(5, self.update_sprite)
-
-    def update_sprite(self) -> None:
-        self.node.text = f"{len(self.tile_map.tile_map.tiles)} tiles"
-        self.node.position = self.game.screen.get_width() - self.node.image.get_width(), 0
-
-
-class TileMapChunksComponent(Component):
-    node: TextNode
-    
-    def __init__(self):
-        super().__init__()
-
-        self.game = GameManager.get_instance()
-        self.game.ticks.register(10, self._find_tile_map)
-    
-    def _find_tile_map(self) -> None:
-        self.tile_map: TileMapNode = self.node.scene.root_node.get_node_by_tag("TileMap")
-
-        if self.tile_map is None:
-            return
-        
-        self.game.ticks.unregister(self._find_tile_map)
-        self.game.ticks.register(5, self.update_sprite)
-
-    def update_sprite(self) -> None:
-        self.node.text = f"{len(self.tile_map.tile_map.chunks)} chunks"
-        self.node.position = self.game.screen.get_width() - self.node.image.get_width(), 14
-
-
-class TileMapSpritesComponent(Component):
-    node: TextNode
-    
-    def __init__(self):
-        super().__init__()
-
-        self.game = GameManager.get_instance()
-        self.game.ticks.register(10, self._find_tile_map)
-    
-    def _find_tile_map(self) -> None:
-        self.tile_map: TileMapNode = self.node.scene.root_node.get_node_by_tag("TileMap")
-
-        if self.tile_map is None:
-            return
-        
-        self.game.ticks.unregister(self._find_tile_map)
-        self.game.ticks.register(5, self.update_sprite)
-
-    def update_sprite(self) -> None:
-        self.node.text = f"{len(self.tile_map.sprites)} sprites"
-        self.node.position = self.game.screen.get_width() - self.node.image.get_width(), 28
+class WorldComponent(Component):
+    ...
 
 
 class Game(GameManager, init=False):
     def __init__(self, config: GameConfig) -> None:
         super().__init__(config)
 
-        TexturesManager()
+        Resources()
 
         main_scene = self.scenes.create_scene("main_scene")
         self.scenes.set_current("main_scene")
@@ -214,43 +116,55 @@ class Game(GameManager, init=False):
                 nodes=[
                     Node().update_fields(
                         nodes=[PlayerNode()] + [
-                            TreeNode()
-                            for _ in range(1500)
+                            TreeNode() for _ in range(2000)
+                        ],
+                        components=[
+                            WorldComponent()
                         ]
                     ),
                     TileMapNode().update_fields(
                         tag="TileMap"
                     ),
-                    TextNode().update_fields(
-                        color=(255, 0, 0),
-                        position=(0, 0),
-                        components=[
-                            UpsTextComponent()
+                    DrawableNode(
+                        tag="GameStatistics",
+                        nodes=[
+                            TextNode().update_fields(
+                                color=(255, 0, 0),
+                                position=(0, 0),
+                                components=[
+                                    UpsTextComponent()
+                                ]
+                            ),
+                            TextNode().update_fields(
+                                color=(255, 0, 0),
+                                position=(0, 14),
+                                components=[
+                                    FpsTextComponent()
+                                ]
+                            )
                         ]
                     ),
-                    TextNode().update_fields(
-                        color=(255, 0, 0),
-                        position=(0, 14),
-                        components=[
-                            FpsTextComponent()
-                        ]
-                    ),
-                    TextNode().update_fields(
-                        color=(0, 255, 0),
-                        components=[
-                            TileMapTilesComponent()
-                        ]
-                    ),
-                    TextNode().update_fields(
-                        color=(0, 255, 0),
-                        components=[
-                            TileMapChunksComponent()
-                        ]
-                    ),
-                    TextNode().update_fields(
-                        color=(0, 255, 0),
-                        components=[
-                            TileMapSpritesComponent()
+                    DrawableNode(
+                        tag="TileMapStatistics",
+                        nodes=[
+                            TextNode().update_fields(
+                                color=(0, 255, 0),
+                                components=[
+                                    TileMapTilesComponent()
+                                ]
+                            ),
+                            TextNode().update_fields(
+                                color=(0, 255, 0),
+                                components=[
+                                    TileMapChunksComponent()
+                                ]
+                            ),
+                            TextNode().update_fields(
+                                color=(0, 255, 0),
+                                components=[
+                                    TileMapSpritesComponent()
+                                ]
+                            )
                         ]
                     )
                 ]
